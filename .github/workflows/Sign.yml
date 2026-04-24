@@ -1,0 +1,34 @@
+name: Madra Cloud Signer
+on:
+  workflow_dispatch: # هذا يسمح لنا بتشغيل التوقيع عن طريق رابط API
+    inputs:
+      p12_password:
+        description: 'كلمة سر الشهادة'
+        required: true
+
+jobs:
+  build:
+    runs-on: macos-latest # هنا نستخدم سيرفر ماك من جيثب مجاناً
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Install Sign Tool (zsign)
+        run: |
+          brew install openssl
+          git clone https://github.com/p0p0/zsign.git
+          cd zsign && make
+          sudo cp zsign /usr/local/bin/
+
+      - name: Sign IPA
+        run: |
+          # السيرفر بياخذ الملفات اللي انت رفعتها ويوقعها
+          zsign -k cert.p12 -p "${{ github.event.inputs.p12_password }}" -m prov.mobileprovision -o signed.ipa input.ipa
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: signed.ipa
+          tag_name: v${{ github.run_number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
